@@ -124,6 +124,13 @@ def to_appropriate_scale(landmark, i):
 
     return landmarks
 
+def to_appropriate_scale2(landmark):
+    landmark = np.array(landmark)
+    landmark[:, 0] = landmark[:, 0] * 640.0
+    landmark[:, 1] = -landmark[:, 1] * 480.0
+
+    return landmark
+
 def get_face_center(face_data):
     center = (face_data[FACE_LEFT_ID, :] + face_data[FACE_RIGHT_ID, :]) / 2.0
 
@@ -142,29 +149,52 @@ def get_wrist_position(all_data, i):
 
     return wrist_point
 
+from collections import defaultdict
 class HandProecssor:
     def create_publish_data(self, all_data):
         if 'FaceLandmarks' not in all_data:
             return {}
 
         right = None
-        right_i = None
         left = None
-        left_i = None
+        indices = {}
+
+        hand_landmarks = all_data["HandLandmarks"]
 
         poss = []
-        for i in range(0, len(all_data["HandLandmarks"])):
+        for i in range(0, len(hand_landmarks)):
             write_pos = get_wrist_position(all_data, i)
             # write_pos[2] = 0.007156017295546874
-    
+
             if write_pos[0] > 0:
                 right = write_pos
+                indices["right"] = i
             else:
                 left = write_pos
-        
+                indices["left"] = i
+
+        # import IPython; IPython.embed()
+
+        hand_status = defaultdict(dict)
+        for tag in ["right", "left"]:
+            if tag in indices:
+                for finger_name in flu.FINGER_IDS.keys():
+                    rotations = flu.get_relative_angles_from_wrist_v3(
+                        to_appropriate_scale2(
+                            hand_landmarks[indices[tag]]["landmarks"]), 
+                            flu.FINGER_IDS[finger_name])
+                    hand_status[tag][finger_name] = [{
+                        "axis": axis.tolist(),
+                        "angle": angle,
+                    } for axis, angle in rotations]
+            else:
+                hand_status[tag] = None
+
         return {
             "wrist_point_left": right.tolist() if right is not None else None,
             "wrist_point_right": left.tolist() if left is not None else None,
+            "right": hand_status["right"],
+            "left": hand_status["left"]
         }
 
     def create_geometries(self, data, publish_data):
@@ -191,10 +221,11 @@ class FaceProcessor:
     def create_publish_data(self, all_data):
         data = all_data["FaceLandmarks"]
         landmarks = np.array(data[0]["landmarks"])
-        feature = flu.get_lipsync_feature_v1(landmarks)
         landmarks[:, 0] = landmarks[:, 0] * 640.0
         landmarks[:, 1] = -landmarks[:, 1] * 480.0
 
+        flu.normalize_lip(landmarks)
+        feature = flu.get_lipsync_feature_v1(landmarks)
         model = pickle.load(open("mouth_classification_model.pkl", "rb"))
         proba = model.predict_proba([feature])[0]
         class_map = {}
@@ -253,7 +284,8 @@ class HumanStateConsumer:
         self.publisher = publisher
 
         for topic_name in topic_names:
-            self.topic_consumers[topic_name] = ToJsonConsumer(subscriber, topic_name, logging_name)
+            self.topic_consumers[topic_name] = \
+                ToJsonConsumer(subscriber, topic_name, None if logging_name is None else os.path.join("logs", logging_name))
             self.processors[topic_name] = get_geom_craetor(topic_name)
 
         self.visualizer = open3d.visualization.Visualizer()
@@ -261,7 +293,7 @@ class HumanStateConsumer:
         self.previous_time = time.time()
         self.folder_name = None
         if logging_name is not None:
-            self.folder_name = logging_name 
+            self.folder_name = os.path.join("logs", logging_name)
             self.publish_data = []
             self.current_datetime = datetime.datetime.now().strftime("%Y%m%d-%H%m%S")
 
@@ -280,7 +312,7 @@ class HumanStateConsumer:
                 publish_data[topic_name] = \
                     self.processors[topic_name].create_publish_data(all_data)
 
-        print(f"Publishing: {publish_data}")
+        # print(f"Publishing: {publish_data}")
         if self.folder_name is not None:
             self.publish_data.append(publish_data)
 

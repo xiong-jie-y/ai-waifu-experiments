@@ -44,13 +44,25 @@ def get_first_landmarks_in_frames(filepath):
     return [__get_landmark(face_landmark_frame) for face_landmark_frame in face_landmark_frames]
 
 import argparse
+import streamlit as st
 
-parser = argparse.ArgumentParser()
-parser.add_argument('--filepath')
-args = parser.parse_args()
+# parser = argparse.ArgumentParser()
+# parser.add_argument('--filepath')
+# args = parser.parse_args()
 
-first_landmarks = get_first_landmarks_in_frames(args.filepath)
-first_landmark = first_landmarks[2]
+import os
+import glob
+
+log_dir = "logs"
+files = list(glob.glob(os.path.join(log_dir, "**/*.json"), recursive=True))
+file_path = st.selectbox('choose your log file', files)
+# sensor_log = json.load(open(os.path.join(log_dir, file_path), "r"))["data"]
+
+first_landmarks = get_first_landmarks_in_frames(file_path)
+index = st.slider('Frame Number', 0, len(first_landmarks), 1)
+# elev = st.slider('Elev', 0, 360, 90)
+# azim = st.slider('Azim', 0, 360, 90)
+first_landmark = first_landmarks[index]
 # first_landmark = first_landmarks[0]
 
 print(first_landmark)
@@ -77,9 +89,10 @@ import facelandmark_utils as flu
 
 # flu.get_lip_bounding_box(first_landmark)
 
-def draw_landmark_2d_with_index(landmark, filter_ids=[]):
+def draw_landmark_3d_with_index(landmark, filter_ids=[]):
     fig = plt.figure()
     ax1 = fig.add_subplot(111 , projection='3d')
+    ax1.view_init(elev=elev, azim=azim)
 
     for i, keypoint in enumerate(landmark):
         if len(filter_ids) == 0 or i in filter_ids:
@@ -92,9 +105,33 @@ def draw_landmark_2d_with_index(landmark, filter_ids=[]):
         ax1.scatter(landmark[:,0],landmark[:,1], zs=landmark[:,2])
     else:
         ax1.scatter(landmark[filter_ids,0],landmark[filter_ids,1], zs=landmark[filter_ids,2])
+    st.write(fig)
+
+def draw_landmark_2d_with_index(landmark, filter_ids=[]):
+    fig = plt.figure()
+    ax1 = fig.add_subplot(111)
+
+    for i, keypoint in enumerate(landmark):
+        if len(filter_ids) == 0 or i in filter_ids:
+            ax1.text(keypoint[0], keypoint[1], s=str(i))
+
+    # direction = flu.simple_face_direction(landmark)
+    # direction = direction / np.linalg.norm(direction)
+    # ax1.plot(direction[:,0], direction[:,1], direction[:,2])
+    if len(filter_ids) == 0:
+        ax1.scatter(landmark[:,0],landmark[:,1])
+    else:
+        ax1.scatter(landmark[filter_ids,0],landmark[filter_ids,1])
+    # st.write(fig)
     plt.show()
 
-draw_landmark_2d_with_index(first_landmark)
+st.write("## Feature Value")
+st.write(flu.get_lipsync_feature_v1(first_landmark))
+class_map = flu.get_lipclass_shape(first_landmark)
+st.write("## Output")
+st.write(class_map)
+flu.normalize_lip(first_landmark)
+draw_landmark_2d_with_index(first_landmark, flu.LIPSYNC_KEYPOINT_IDS)
 
 def draw_landmark(landmark):
     points = o3d.utility.Vector3dVector(first_landmark)
