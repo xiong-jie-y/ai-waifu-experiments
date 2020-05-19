@@ -9,14 +9,16 @@ I will recommend using conda or pyenv.
 
 ```sh
 pip install annoy
-pip install camphr
+pip install camphr[mecab]
 pip install streamlit
 ```
 
 You can run this script with the following command.
 
 ```sh
-streamlit run 
+wget https://raw.githubusercontent.com/xiong-jie-y/virtual-waifu-experiments/master/bert_based_conversation/example_conversation_pairs.csv
+
+streamlit run https://raw.githubusercontent.com/xiong-jie-y/virtual-waifu-experiments/master/bert_based_conversation/conversation_board.py
 ```
 
 If it's the first time run, please ingest conversation pair csv file by pressing "Ingest CSV" button. Example file is provided.
