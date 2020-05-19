@@ -1,6 +1,8 @@
 # Bert-based conversational agent UI
 This is the streamlit script that enable you to try reply selection algorithm based on similarity between user talk and talk in the database. The reply to the most similar talk from user talk is chosen as a reply.
 
+![](screenshot.png)
+
 Currently only bert for japanese is supported.
 
 ## How to run it
