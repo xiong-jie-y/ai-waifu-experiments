@@ -47,7 +47,6 @@ def save_label_map_dict(path, label_map_dict):
     fid.write(label_map_string)
 
 def create_tf_example(image_id, image, bounding_box_list, class_name_id_map):
-    calib = slam_map.get_intrinsic()
     encoded_image_data, width, height = image_utils.convert_from_open3d_color_image_to_png(image)
     filename = f"{image_id}.png".encode('utf-8')
     image_format = b'png'
@@ -60,7 +59,6 @@ def create_tf_example(image_id, image, bounding_box_list, class_name_id_map):
                 # (1 per box)
     classes_text = [] # List of string class name of bounding box (1 per box)
     for label, bounding_box in bounding_box_list:
-        bounding_box = bd_utils.get_2d_min_max_bouding_box(bounding_box, calib)
         if bounding_box['min'][0] < 0 or bounding_box['min'][1] < 0 \
             or bounding_box['max'][0] >= width or bounding_box['max'][1] >= height:
             continue

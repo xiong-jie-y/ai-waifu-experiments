@@ -47,6 +47,38 @@ def get_intrinsic():
     return intri
 
 
+def bounding_box_2d_via_points(map_data, calib):
+    bounding_box_2d_lists = []
+
+    for pose, orientation in zip(map_data.positions, map_data.rotations):
+        rot_inv = orientation.inv().as_matrix()
+        annotation_list = []
+        for label, point_cloud in map_data.annotations:
+            points_cam = [
+                rot_inv.dot(p)
+                for p in (np.asfarray(point_cloud.points) - pose)]
+            points_2d = np.array([rs.rs2_project_point_to_pixel(calib,
+                                                                [-point[1], -point[2], point[0]]) for point in points_cam])
+            annotation_list.append(
+                (label, bd_utils.bounding_box_from_points(points_2d)))
+        bounding_box_2d_lists.append(annotation_list)
+
+    return bounding_box_2d_lists
+
+
+def bounding_box_2d_via_3d_box(map_data, calib):
+    bounding_box_lists = map_data.get_camera_centered_bounding_boxes()
+    bounding_box_2d_lists = []
+
+    for bounding_box_list in bounding_box_lists:
+        bounding_box_2d_lists.append([
+            (label, bd_utils.get_2d_min_max_bouding_box(bounding_box, calib))
+            for label, bounding_box in bounding_box_list
+        ])
+
+    return bounding_box_2d_lists
+
+
 class SLAMMap:
     def __init__(
             self, point_cloud: open3d.geometry.PointCloud,
@@ -59,6 +91,10 @@ class SLAMMap:
         self.rgbd_images = rgbd_images
         self.calibration_info = calibration_info
         self.annotations = annotations
+
+    def get_2d_bounding_box_lists(self, bounding_box_func) -> List[List[Tuple[str, dict]]]:
+        calib = get_intrinsic()
+        return bounding_box_func(self, calib)
 
     def get_camera_centered_bounding_boxes(self) -> List[List[Tuple[str, open3d.geometry.OrientedBoundingBox]]]:
         camera_matrix = self.calibration_info['camera_matrix']

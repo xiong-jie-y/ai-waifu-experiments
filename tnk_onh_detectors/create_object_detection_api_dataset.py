@@ -20,7 +20,7 @@ for folder_name, label in label_names:
     map = slam_map.SLAMMap.load_map_from_rtab_result_dir(
         os.path.expanduser(f"~/Documents/RTAB-Map/{folder_name}")
     )
-    bds = map.get_camera_centered_bounding_boxes()
+    bds = map.get_2d_bounding_box_lists(slam_map.bounding_box_2d_via_points)
 
     # override labels
     for bd_list in bds:

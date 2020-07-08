@@ -19,6 +19,12 @@ def min_max_to_4_points(mmbd):
         list(mmbd['min']),
     ])
 
+def bounding_box_from_points(points):
+    return dict(
+        min=[points[:, 0].min(), points[:, 1].min()],
+        max=[points[:, 0].max(), points[:, 1].max()]
+    )
+
 def get_2d_min_max_bouding_box(oriented_bounding_box, intrinsic):
     points = np.array(oriented_bounding_box.get_box_points())
     # points_image = np.dot(points, camera_mat_np)
