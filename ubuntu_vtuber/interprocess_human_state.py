@@ -114,88 +114,20 @@ def visualize_hand_landmark_frame(face_landmark_frame):
 def empty(data):
     return []
 
+SCALE = 1000
+
 FACE_LEFT_ID = 323
 FACE_RIGHT_ID = 132
 
-def to_appropriate_scale(landmark, i):
-    landmarks = np.array(landmark[i]["landmarks"])
-    landmarks[:, 0] = landmarks[:, 0] * 640.0
-    landmarks[:, 1] = -landmarks[:, 1] * 480.0
-
-    return landmarks
-
-def to_appropriate_scale2(landmark):
-    landmark = np.array(landmark)
-    landmark[:, 0] = landmark[:, 0] * 640.0
-    landmark[:, 1] = -landmark[:, 1] * 480.0
-
-    return landmark
-
-def get_face_center(face_data):
-    center = (face_data[FACE_LEFT_ID, :] + face_data[FACE_RIGHT_ID, :]) / 2.0
-
-    return center
-
-SCALE = 1000
-
-def get_wrist_position(all_data, i):
-    data = all_data["HandLandmarks"]
-    landmarks = to_appropriate_scale(data, i)
-
-    wrist_point = landmarks[0, :]
-    wrist_point -= get_face_center(
-        to_appropriate_scale(all_data["FaceLandmarks"], 0))
-    wrist_point /= SCALE
-
-    return wrist_point
-
 from collections import defaultdict
+from scipy.spatial.transform import Rotation
+
 class HandProecssor:
+    def __init__(self):
+        self.tracker = flu.RightLeftHandStateTracker()
+
     def create_publish_data(self, all_data):
-        if 'FaceLandmarks' not in all_data:
-            return {}
-
-        right = None
-        left = None
-        indices = {}
-
-        hand_landmarks = all_data["HandLandmarks"]
-
-        poss = []
-        for i in range(0, len(hand_landmarks)):
-            write_pos = get_wrist_position(all_data, i)
-            # write_pos[2] = 0.007156017295546874
-
-            if write_pos[0] > 0:
-                right = write_pos
-                indices["right"] = i
-            else:
-                left = write_pos
-                indices["left"] = i
-
-        # import IPython; IPython.embed()
-
-        hand_status = defaultdict(dict)
-        for tag in ["right", "left"]:
-            if tag in indices:
-                for finger_name in flu.FINGER_IDS.keys():
-                    rotations = flu.get_relative_angles_from_wrist_v3(
-                        to_appropriate_scale2(
-                            hand_landmarks[indices[tag]]["landmarks"]), 
-                            flu.FINGER_IDS[finger_name])
-                    hand_status[tag][finger_name] = [{
-                        "axis": axis.tolist(),
-                        "angle": angle,
-                    } for axis, angle in rotations]
-            else:
-                hand_status[tag] = None
-
-        return {
-            "wrist_point_left": right.tolist() if right is not None else None,
-            "wrist_point_right": left.tolist() if left is not None else None,
-            "right": hand_status["right"],
-            "left": hand_status["left"]
-        }
+        return self.tracker.get_left_right_hand_states(all_data)
 
     def create_geometries(self, data, publish_data):
         geoms = visualize_hand_landmark_frame(data)

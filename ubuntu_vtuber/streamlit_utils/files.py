@@ -15,3 +15,8 @@ def choose_file_from_glob(root_path, init_glob):
     glob_str = st.sidebar.text_input("Glob", init_glob)
     files = list(glob.glob(os.path.join(root_path, glob_str), recursive=True))
     return st.sidebar.selectbox('choose your log file', files)
+
+def choose_multi_file_from_glob(root_path, init_glob):
+    glob_str = st.sidebar.text_input("Glob", init_glob)
+    files = list(glob.glob(os.path.join(root_path, glob_str), recursive=True))
+    return st.sidebar.multiselect('choose your multiple log file', files)
