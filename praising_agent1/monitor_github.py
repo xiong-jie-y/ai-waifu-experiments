@@ -67,12 +67,12 @@ class TextPraisingAgent():
         num_doc_lines = changes['.md'] if '.md' in changes else 0
         num_code_lines = changes['.py'] if '.py' in changes else 0
 
-        if num_doc_lines > 300:
+        if num_doc_lines > 500 and num_code_lines > 100:
+            print("すっごーい！")
+        elif num_code_lines > 100:
+            print("たくさんコードを書いたね！えらい！")
+        elif num_doc_lines > 500:
             print("たくさん文章を書いたね！")
-
-        if num_code_lines > 100:
-            print("たくさんコードを書きました！えらい！")
-
         if num_doc_lines < 300 and num_code_lines < 100:
             print("頑張ってるね！！")
 
