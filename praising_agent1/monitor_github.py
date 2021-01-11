@@ -82,12 +82,19 @@ class TextPraisingAgent():
 
     def try_to_praise(self):
         changes = self.check_repositories_update()
+        print(changes)
         self._try_to_praise(changes)
 
     def save_state(self):
         yaml.dump(self.last_status, open(LAST_STATUS_FILE, 'w'))
 
+def try_to_praise():
+    agent = TextPraisingAgent()
+    agent.try_to_praise()
+    agent.save_state()
 
-agent = TextPraisingAgent()
-agent.try_to_praise()
-agent.save_state()
+from apscheduler.schedulers.blocking import BlockingScheduler
+
+scheduler = BlockingScheduler()
+scheduler.add_job(try_to_praise, 'interval', hours=1)
+scheduler.start()
