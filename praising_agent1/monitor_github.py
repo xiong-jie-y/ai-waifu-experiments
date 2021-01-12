@@ -71,14 +71,19 @@ class TextPraisingAgent():
         num_doc_lines = changes['.md'] if '.md' in changes else 0
         num_code_lines = changes['.py'] if '.py' in changes else 0
 
+        now_str = datetime.datetime.now().isoformat()
+
+        praise = ""
         if num_doc_lines > 500 and num_code_lines > 100:
-            print("すっごーい！")
+            praise = "すっごーい！"
         elif num_code_lines > 100:
-            print("たくさんコードを書いたね！えらい！")
+            praise = f"たくさんコードを書いたね！えらい！{num_code_lines}行も書いたんだよ！"
         elif num_doc_lines > 500:
-            print("たくさん文章を書いたね！")
-        if num_doc_lines < 300 and num_code_lines < 100:
-            print("頑張ってるね！！")
+            praise = "たくさん文章を書いたね！"
+        else:
+            praise = "頑張ってるね！！"
+
+        print(f"{now_str}:{praise}")
 
         last_achievement = self.last_status['last_achievement'] if 'last_achievement' in self.last_status else {}
         last_achievement['num_doc_lines'] = num_doc_lines
@@ -89,7 +94,7 @@ class TextPraisingAgent():
 
     def try_to_praise(self):
         changes = self.check_repositories_update()
-        print(changes)
+        # print(changes)
         self._try_to_praise(changes)
 
     def save_state(self):
