@@ -5,6 +5,9 @@ import os
 import subprocess
 from collections import defaultdict
 import yaml
+import json
+import copy
+import datetime
 
 MONITOR_CONFIG = "monitor_config.yaml"
 
@@ -13,12 +16,13 @@ config = yaml.load(open(MONITOR_CONFIG), Loader=yaml.FullLoader)
 
 LAST_STATUS_FILE = "last_status.yaml"
 GIT_LOCAL_ROOT = os.path.expanduser("~/data")
-
+ACHIVEMENT_FILE = "achivements.json"
 
 class TextPraisingAgent():
     def __init__(self):
         self.last_status = yaml.load(open(LAST_STATUS_FILE), Loader=yaml.FullLoader)
         # print(self.last_status)
+        self.achievements = json.load(open(ACHIVEMENT_FILE))
 
     def check_repositories_update(self):
         addition_lines = defaultdict(lambda: 0)
@@ -79,6 +83,9 @@ class TextPraisingAgent():
         last_achievement = self.last_status['last_achievement'] if 'last_achievement' in self.last_status else {}
         last_achievement['num_doc_lines'] = num_doc_lines
         last_achievement['num_code_lines'] = num_code_lines
+        achievement_record = copy.deepcopy(last_achievement)
+        achievement_record['date'] = datetime.datetime.now().isoformat()
+        self.achievements.append(achievement_record)
 
     def try_to_praise(self):
         changes = self.check_repositories_update()
@@ -87,14 +94,17 @@ class TextPraisingAgent():
 
     def save_state(self):
         yaml.dump(self.last_status, open(LAST_STATUS_FILE, 'w'))
+        json.dump(self.achievements, open(ACHIVEMENT_FILE, 'w'))
 
 def try_to_praise():
     agent = TextPraisingAgent()
     agent.try_to_praise()
     agent.save_state()
 
-from apscheduler.schedulers.blocking import BlockingScheduler
+try_to_praise()
 
-scheduler = BlockingScheduler()
-scheduler.add_job(try_to_praise, 'interval', hours=1)
-scheduler.start()
+# from apscheduler.schedulers.blocking import BlockingScheduler
+
+# scheduler = BlockingScheduler()
+# scheduler.add_job(try_to_praise, 'interval', hours=1)
+# scheduler.start()
