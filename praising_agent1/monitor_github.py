@@ -1,3 +1,4 @@
+import datetime
 import difflib
 from typing import Text
 from git import Repo
@@ -7,7 +8,6 @@ from collections import defaultdict
 import yaml
 import json
 import copy
-import datetime
 
 MONITOR_CONFIG = "monitor_config.yaml"
 
@@ -18,14 +18,63 @@ LAST_STATUS_FILE = "last_status.yaml"
 GIT_LOCAL_ROOT = os.path.expanduser("~/data")
 ACHIVEMENT_FILE = "achivements.json"
 
+
+class TextMetric:
+    def add_diff(self, diff_item):
+        if diff_item.change_type == 'M':
+            diff = difflib.ndiff(
+                diff_item.a_blob.data_stream.read().decode('utf-8').split("\n"),
+                diff_item.b_blob.data_stream.read().decode('utf-8').split("\n"))
+            self.process_diff(diff)
+        elif diff_item.change_type == 'A':
+            self.process_addition(
+                diff_item.b_blob.data_stream.read().decode('utf-8').split("\n"))
+        else:
+            print(diff_item.change_type)
+
+
+class LineCountMetric(TextMetric):
+    def __init__(self):
+        self.value = 0
+
+    def process_diff(self, diff):
+        for l in diff:
+            if l.startswith("+ "):
+                self.value += 1
+
+    def process_addition(self, data):
+        self.value += len(data)
+
+
+class CharacterCountMetric(TextMetric):
+    def __init__(self):
+        self.value = 0
+
+    def process_diff(self, diff):
+        for l in diff:
+            if l.startswith("+ "):
+                self.value += len(l) - 2
+
+    def process_addition(self, data):
+        for line in data:
+            self.value += len(line)
+
+
+METRIC_MAP = {
+    ".md": CharacterCountMetric(),
+    ".py": LineCountMetric(),
+}
+
+
 class TextPraisingAgent():
     def __init__(self):
-        self.last_status = yaml.load(open(LAST_STATUS_FILE), Loader=yaml.FullLoader)
+        self.last_status = yaml.load(
+            open(LAST_STATUS_FILE), Loader=yaml.FullLoader)
         # print(self.last_status)
         self.achievements = json.load(open(ACHIVEMENT_FILE))
 
     def check_repositories_update(self):
-        addition_lines = defaultdict(lambda: 0)
+        addition_lines = {}
         for git_repository in config['monitor_targets']['git_repositories']:
             git_local_path = os.path.join(
                 GIT_LOCAL_ROOT, git_repository['name'])
@@ -38,7 +87,8 @@ class TextPraisingAgent():
             o.pull()
 
             latest_commit = repo.head.commit
-            last_commits = self.last_status['last_commits'] if 'last_commits' in self.last_status else {}
+            last_commits = self.last_status['last_commits'] if 'last_commits' in self.last_status else {
+            }
             if git_repository['name'] not in last_commits:
                 last_commits[git_repository['name']] = latest_commit.hexsha
 
@@ -47,20 +97,20 @@ class TextPraisingAgent():
             # import IPython; IPython.embed()
             # diff_index = repo.commit('HEAD~2').diff(t)
             for diff_item in diff_index:
-                ext_name = os.path.splitext(diff_item.b_path)[1]
-                if diff_item.change_type == 'M':
-                    diff = difflib.ndiff(
-                        diff_item.a_blob.data_stream.read().decode('utf-8').split("\n"),
-                        diff_item.b_blob.data_stream.read().decode('utf-8').split("\n"))
-                    for l in diff:
-                        if l.startswith("+ "):
-                            addition_lines[ext_name] += 1
-                elif diff_item.change_type == 'A':
-                    addition_lines[ext_name] += len(
-                        diff_item.b_blob.data_stream.read().decode('utf-8').split("\n"))
-                else:
-                    print(diff_item.change_type)
-            
+                try:
+                    ext_name = os.path.splitext(diff_item.b_path)[1]
+                    if ext_name not in METRIC_MAP:
+                        continue
+
+                    if ext_name not in addition_lines:
+                        addition_lines[ext_name] = METRIC_MAP[ext_name]
+
+                    addition_lines[ext_name].add_diff(diff_item)
+
+                except:
+                    import IPython
+                    IPython.embed()
+
             last_commits[git_repository['name']] = latest_commit.hexsha
 
             # print(addition_lines)
@@ -68,16 +118,16 @@ class TextPraisingAgent():
         return dict(addition_lines)
 
     def _try_to_praise(self, changes):
-        num_doc_lines = changes['.md'] if '.md' in changes else 0
-        num_code_lines = changes['.py'] if '.py' in changes else 0
+        num_doc_lines = changes['.md'].value if '.md' in changes else 0
+        num_code_lines = changes['.py'].value if '.py' in changes else 0
 
         now_str = datetime.datetime.now().isoformat()
 
         praise = ""
-        if num_doc_lines > 500 and num_code_lines > 100:
+        if num_doc_lines > 1000 and num_code_lines > 100:
             praise = "すっごーい！"
         elif num_code_lines > 100:
-            praise = f"たくさんコードを書いたね！えらい！{num_code_lines}行も書いたんだよ！"
+            praise = f"たくさんコードを書いたね！えらい！{num_code_lines}行も書いてる！"
         elif num_doc_lines > 500:
             praise = "たくさん文章を書いたね！"
         else:
@@ -85,7 +135,8 @@ class TextPraisingAgent():
 
         print(f"{now_str}:{praise}")
 
-        last_achievement = self.last_status['last_achievement'] if 'last_achievement' in self.last_status else {}
+        last_achievement = self.last_status['last_achievement'] if 'last_achievement' in self.last_status else {
+        }
         last_achievement['num_doc_lines'] = num_doc_lines
         last_achievement['num_code_lines'] = num_code_lines
         achievement_record = copy.deepcopy(last_achievement)
@@ -101,19 +152,21 @@ class TextPraisingAgent():
         yaml.dump(self.last_status, open(LAST_STATUS_FILE, 'w'))
         json.dump(self.achievements, open(ACHIVEMENT_FILE, 'w'))
 
+
 def try_to_praise():
     agent = TextPraisingAgent()
     agent.try_to_praise()
     agent.save_state()
 
-# try_to_praise()
 
 def main():
-    from apscheduler.schedulers.blocking import BlockingScheduler
+    try_to_praise()
+    # from apscheduler.schedulers.blocking import BlockingScheduler
 
-    scheduler = BlockingScheduler()
-    scheduler.add_job(try_to_praise, 'interval', hours=1)
-    scheduler.start()
+    # scheduler = BlockingScheduler()
+    # scheduler.add_job(try_to_praise, 'interval', hours=1)
+    # scheduler.start()
+
 
 if __name__ == "__main__":
     main()
