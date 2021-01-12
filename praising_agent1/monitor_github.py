@@ -106,10 +106,14 @@ def try_to_praise():
     agent.try_to_praise()
     agent.save_state()
 
-try_to_praise()
+# try_to_praise()
 
-# from apscheduler.schedulers.blocking import BlockingScheduler
+def main():
+    from apscheduler.schedulers.blocking import BlockingScheduler
 
-# scheduler = BlockingScheduler()
-# scheduler.add_job(try_to_praise, 'interval', hours=1)
-# scheduler.start()
+    scheduler = BlockingScheduler()
+    scheduler.add_job(try_to_praise, 'interval', hours=1)
+    scheduler.start()
+
+if __name__ == "__main__":
+    main()
