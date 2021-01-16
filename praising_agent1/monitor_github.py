@@ -8,6 +8,16 @@ from collections import defaultdict
 import yaml
 import json
 import copy
+import random
+import click
+from dataclasses import dataclass
+
+
+@dataclass
+class Praise:
+    text: str
+    score: float = 0.0
+
 
 MONITOR_CONFIG = "monitor_config.yaml"
 
@@ -17,6 +27,7 @@ config = yaml.load(open(MONITOR_CONFIG), Loader=yaml.FullLoader)
 LAST_STATUS_FILE = "last_status.yaml"
 GIT_LOCAL_ROOT = os.path.expanduser("~/data")
 ACHIVEMENT_FILE = "achivements.json"
+PRAISED_TIMESTAMP_FILE = 'praised_timestamp.json'
 
 
 class TextMetric:
@@ -72,6 +83,7 @@ class TextPraisingAgent():
             open(LAST_STATUS_FILE), Loader=yaml.FullLoader)
         # print(self.last_status)
         self.achievements = json.load(open(ACHIVEMENT_FILE))
+        self.praised_timestamp = json.load(open(PRAISED_TIMESTAMP_FILE))
 
     def check_repositories_update(self):
         addition_lines = {}
@@ -123,17 +135,33 @@ class TextPraisingAgent():
 
         now_str = datetime.datetime.now().isoformat()
 
-        praise = ""
+        praises = []
         if num_doc_lines > 1000 and num_code_lines > 100:
-            praise = "すっごーい！"
+            praises.append(Praise("すっごーい！", score=1.0))
         elif num_code_lines > 100:
-            praise = f"たくさんコードを書いたね！えらい！{num_code_lines}行も書いてる！"
+            praises.append(
+                Praise(f"たくさんコードを書いたね！えらい！{num_code_lines}行も書いてる！", score=0.5))
         elif num_doc_lines > 500:
-            praise = "たくさん文章を書いたね！"
+            praises.append(Praise(f"たくさん文章を書いたね！{num_doc_lines}も書いてる！", score=0.5))
         else:
-            praise = "頑張ってるね！！"
+            praises.append(Praise("頑張ってるね！！"))
 
-        print(f"{now_str}:{praise}")
+        praises.sort(key=lambda p: p.score)
+        # random.shuffle(praises)
+        praise = None
+        for p in praises:
+            if p.text not in self.praised_timestamp or \
+                (datetime.datetime.now() - datetime.datetime.fromisoformat(self.praised_timestamp[p.text])) \
+                    > datetime.timedelta(days=30):
+                praise = p
+                self.praised_timestamp[p.text] = datetime.datetime.now().isoformat()
+
+        if praise is None:
+            praise_txt = "今日はいい天気だね〜〜"
+        else:
+            praise_txt = praise.text
+
+        print(f"{now_str}:{praise_txt}")
 
         last_achievement = self.last_status['last_achievement'] if 'last_achievement' in self.last_status else {
         }
@@ -151,6 +179,7 @@ class TextPraisingAgent():
     def save_state(self):
         yaml.dump(self.last_status, open(LAST_STATUS_FILE, 'w'))
         json.dump(self.achievements, open(ACHIVEMENT_FILE, 'w'))
+        json.dump(self.praised_timestamp, open(PRAISED_TIMESTAMP_FILE, 'w', encoding='utf-8'))
 
 
 def try_to_praise():
@@ -159,13 +188,17 @@ def try_to_praise():
     agent.save_state()
 
 
-def main():
-    # try_to_praise()
-    from apscheduler.schedulers.blocking import BlockingScheduler
+@click.command()
+@click.option("--with-scheduler", is_flag=True)
+def main(with_scheduler):
+    if with_scheduler:
+        from apscheduler.schedulers.blocking import BlockingScheduler
 
-    scheduler = BlockingScheduler()
-    scheduler.add_job(try_to_praise, 'interval', hours=1)
-    scheduler.start()
+        scheduler = BlockingScheduler()
+        scheduler.add_job(try_to_praise, 'interval', hours=1)
+        scheduler.start()
+    else:
+        try_to_praise()
 
 
 if __name__ == "__main__":
