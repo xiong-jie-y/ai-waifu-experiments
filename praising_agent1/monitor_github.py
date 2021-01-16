@@ -135,16 +135,27 @@ class TextPraisingAgent():
 
         now_str = datetime.datetime.now().isoformat()
 
+        last_achievement = self.achievements[-1]
         praises = []
+        # Praise with absolute values.
         if num_doc_lines > 1000 and num_code_lines > 100:
             praises.append(Praise("すっごーい！", score=1.0))
-        elif num_code_lines > 100:
+        if num_code_lines > 100:
             praises.append(
                 Praise(f"たくさんコードを書いたね！えらい！{num_code_lines}行も書いてる！", score=0.5))
-        elif num_doc_lines > 500:
+        if num_doc_lines > 500:
             praises.append(Praise(f"たくさん文章を書いたね！{num_doc_lines}も書いてる！", score=0.5))
-        else:
-            praises.append(Praise("頑張ってるね！！"))
+
+        # Praises with diffs.
+        diff_code_lines = num_code_lines - last_achievement['num_code_lines']
+        if diff_code_lines > 0:
+            praises.append(Praise(f"1時間前より、{diff_code_lines}文字もたくさん書いてるよ！", score=0.5))
+        diff_doc_lines = num_doc_lines - last_achievement['num_doc_lines']
+        if diff_doc_lines > 0:
+            praises.append(Praise(f"1時間前より、{diff_doc_lines}文字もたくさん書いてるよ！", score=0.5))
+        
+        # Unconditional praises.
+        praises.append(Praise("頑張ってるね！！"))
 
         praises.sort(key=lambda p: p.score)
         # random.shuffle(praises)
@@ -163,11 +174,9 @@ class TextPraisingAgent():
 
         print(f"{now_str}:{praise_txt}")
 
-        last_achievement = self.last_status['last_achievement'] if 'last_achievement' in self.last_status else {
-        }
-        last_achievement['num_doc_lines'] = num_doc_lines
-        last_achievement['num_code_lines'] = num_code_lines
-        achievement_record = copy.deepcopy(last_achievement)
+        achievement_record = {}
+        achievement_record['num_doc_lines'] = num_doc_lines
+        achievement_record['num_code_lines'] = num_code_lines
         achievement_record['date'] = datetime.datetime.now().isoformat()
         self.achievements.append(achievement_record)
 
