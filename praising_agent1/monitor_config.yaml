@@ -1,6 +1,6 @@
 monitor_targets:
   git_repositories:
-    - url: git@github.com:xiong-jie-y/ai-yome-project.git
-      name: ai_waifu_docs
+    - url: git@github.com:xiong-jie-y/my-docs.git
+      name: my_documents
     - url: git@github.com:xiong-jie-y/ai-waifu-experiments.git
       name: ai_waifu_examples

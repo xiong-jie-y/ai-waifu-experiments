@@ -12,6 +12,10 @@ import random
 import click
 from dataclasses import dataclass
 
+from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QLabel, QSizePolicy
+from PyQt5.QtGui import QImage, QPalette, QPixmap
+from PyQt5.QtGui import QPainter, QFont, QColor
+from PyQt5.QtCore import QThread, Qt
 
 @dataclass
 class Praise:
@@ -129,7 +133,7 @@ class TextPraisingAgent():
 
         return dict(addition_lines)
 
-    def _try_to_praise(self, changes):
+    def _try_to_praise(self, changes, serifu_signal):
         num_doc_lines = changes['.md'].value if '.md' in changes else 0
         num_code_lines = changes['.py'].value if '.py' in changes else 0
 
@@ -173,6 +177,7 @@ class TextPraisingAgent():
             praise_txt = praise.text
 
         print(f"{now_str}:{praise_txt}")
+        serifu_signal.emit(praise_txt)
 
         achievement_record = {}
         achievement_record['num_doc_lines'] = num_doc_lines
@@ -180,10 +185,10 @@ class TextPraisingAgent():
         achievement_record['date'] = datetime.datetime.now().isoformat()
         self.achievements.append(achievement_record)
 
-    def try_to_praise(self):
+    def try_to_praise(self, serifu_signal):
         changes = self.check_repositories_update()
         # print(changes)
-        self._try_to_praise(changes)
+        self._try_to_praise(changes, serifu_signal)
 
     def save_state(self):
         yaml.dump(self.last_status, open(LAST_STATUS_FILE, 'w'))
@@ -191,24 +196,88 @@ class TextPraisingAgent():
         json.dump(self.praised_timestamp, open(PRAISED_TIMESTAMP_FILE, 'w', encoding='utf-8'))
 
 
-def try_to_praise():
+def try_to_praise(serifu_signal):
     agent = TextPraisingAgent()
-    agent.try_to_praise()
+    agent.try_to_praise(serifu_signal)
     agent.save_state()
 
+class ConcurrentlyWorker(QThread):
+    def __init__(self, with_scheduler, serifu_signal):
+        super().__init__()
+        self.with_scheduler = with_scheduler
+        self.serifu_signal = serifu_signal
+
+    def run(self):
+        if self.with_scheduler:
+            from apscheduler.schedulers.blocking import BlockingScheduler
+
+            scheduler = BlockingScheduler()
+            scheduler.add_job(try_to_praise, 'interval', hours=1, args=(self.serifu_signal,))
+            scheduler.start()
+        else:
+            try_to_praise(self.serifu_signal)
+
+
+import multiprocessing
+
+from PyQt5.QtCore import QObject, pyqtSignal
+
+class SerifuWindow(QWidget):
+    serifu_signal = pyqtSignal(str)
+
+    def __init__(self, with_scheduler):
+        super().__init__()
+        self.setWindowTitle('Image View')
+
+        image = QImage('data/fukidashi.jpg')
+        painter = QPainter()
+        painter = painter
+        painter.begin(image)
+        painter.setPen(Qt.black)
+        painter.setFont(QFont('Times', 50))
+        painter.drawText(image.rect(), Qt.AlignCenter, 'わーい！')
+        painter.end()
+
+
+        self.imageLabel = QLabel()
+        self.imageLabel.setPixmap(QPixmap.fromImage(image))
+        self.imageLabel.scaleFactor = 1.0
+        layout = QVBoxLayout()
+        layout.addWidget(self.imageLabel)
+        self.setLayout(layout)
+        self.resize(400, 300)
+
+            # self.painter.drawText(self.image.rect(), Qt.AlignCenter, text)
+
+        self.serifu_signal.connect(self.change_serifu)
+
+        # p = multiprocessing.Process(target=run_checker, args=(with_scheduler,self.serifu_signal))
+        thread = ConcurrentlyWorker(with_scheduler, self.serifu_signal)
+        thread.start()
+
+        self.show()
+
+    def change_serifu(self, text):
+        print("aho")
+        print(text)
+
+        image = QImage('data/fukidashi.jpg')
+        painter = QPainter()
+        painter = painter
+        painter.begin(image)
+        painter.setPen(Qt.black)
+        painter.setFont(QFont('Times', 50))
+        painter.drawText(image.rect(), Qt.AlignCenter, text)
+        painter.end()
+
+        self.imageLabel.setPixmap(QPixmap.fromImage(image))
 
 @click.command()
 @click.option("--with-scheduler", is_flag=True)
 def main(with_scheduler):
-    if with_scheduler:
-        from apscheduler.schedulers.blocking import BlockingScheduler
-
-        scheduler = BlockingScheduler()
-        scheduler.add_job(try_to_praise, 'interval', hours=1)
-        scheduler.start()
-    else:
-        try_to_praise()
-
+    app = QApplication([])
+    win = SerifuWindow(with_scheduler)
+    app.exec_()
 
 if __name__ == "__main__":
     main()
