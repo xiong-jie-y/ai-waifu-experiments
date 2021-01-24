@@ -146,17 +146,17 @@ class TextPraisingAgent():
             praises.append(Praise("すっごーい！", score=1.0))
         if num_code_lines > 100:
             praises.append(
-                Praise(f"たくさんコードを書いたね！えらい！{num_code_lines}行も書いてる！", score=0.5))
+                Praise(f"たくさんコードを書いたね！\nえらい！{num_code_lines}行も書いてる！", score=0.5))
         if num_doc_lines > 500:
-            praises.append(Praise(f"たくさん文章を書いたね！{num_doc_lines}も書いてる！", score=0.5))
+            praises.append(Praise(f"たくさん文章を書いたね！\n{num_doc_lines}も書いてる！", score=0.5))
 
         # Praises with diffs.
         diff_code_lines = num_code_lines - last_achievement['num_code_lines']
         if diff_code_lines > 0:
-            praises.append(Praise(f"1時間前より、{diff_code_lines}文字もたくさん書いてるよ！", score=0.5))
+            praises.append(Praise(f"1時間前より、{diff_code_lines}行も\nたくさん書いてるよ！", score=0.5))
         diff_doc_lines = num_doc_lines - last_achievement['num_doc_lines']
         if diff_doc_lines > 0:
-            praises.append(Praise(f"1時間前より、{diff_doc_lines}文字もたくさん書いてるよ！", score=0.5))
+            praises.append(Praise(f"1時間前より、{diff_doc_lines}文字も\nたくさん書いてるよ！", score=0.5))
         
         # Unconditional praises.
         praises.append(Praise("頑張ってるね！！"))
